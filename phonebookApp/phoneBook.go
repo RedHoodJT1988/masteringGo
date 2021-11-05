@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"strconv"
+	"time"
 )
 
 type Entry struct {
@@ -12,10 +15,12 @@ type Entry struct {
 }
 
 var data = []Entry{}
+var MIN = 0
+var MAX = 26
 
 func search(key string) *Entry {
 	for i, v := range data {
-		if v.Surname == key {
+		if v.Tel == key {
 			return &data[i]
 		}
 	}
@@ -28,17 +33,49 @@ func list() {
 	}
 }
 
+func random(min, max int) int {
+	return rand.Intn(max-min) + min
+}
+
+func getString(l int64) string {
+	startChar := "A"
+	temp := ""
+	var i int64 = 1
+	for {
+		myRand := random(MIN, MAX)
+		newChar := string(startChar[0] + byte(myRand))
+		temp = temp + newChar
+		if i == l {
+			break
+		}
+		i++
+	}
+	return temp
+}
+
+func populate(n int, s []Entry) {
+	for i := 0; i < n; i++ {
+		name := getString(4)
+		surname := getString(5)
+		n := strconv.Itoa(random(100, 199))
+		data = append(data, Entry{name, surname, n})
+	}
+}
+
 func main() {
 	arguments := os.Args
 	if len(arguments) == 1 {
-		exe := arguments[0]
-		fmt.Printf("Usage: %s search|list <arguments>\n", exe)
+		fmt.Printf("Usage: search|list <arguments>")
 		return
 	}
 
-	data = append(data, Entry{"Jonathan", "Reeves", "4697761834"})
-	data = append(data, Entry{"Sondra", "Reeves", "6828087617"})
-	data = append(data, Entry{"James", "Reeves", "2094041855"})
+	SEED := time.Now().Unix()
+	rand.Seed(SEED)
+
+	// How many records to insert
+	n := 100
+	populate(n, data)
+	fmt.Printf("Data has %d entires.\n", len(data))
 
 	// Differentiate between the commands
 	switch arguments[1] {
