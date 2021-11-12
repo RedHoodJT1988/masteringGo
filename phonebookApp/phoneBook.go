@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,9 +19,11 @@ type Entry struct {
 }
 
 // CSVFILE resides in the home directory of the current user
-var CSVFILE = "/Users/jonathanreeves/csv.data"
+var CSVFILE = "/Users/mtsouk/csv.data"
 
-var data = []Entry{}
+type PhoneBook []Entry
+
+var data = PhoneBook{}
 var index map[string]int
 
 func readCSVFile(filepath string) error {
@@ -51,6 +54,7 @@ func readCSVFile(filepath string) error {
 		// Storing to global variable
 		data = append(data, temp)
 	}
+
 	return nil
 }
 
@@ -79,7 +83,7 @@ func createIndex() error {
 	return nil
 }
 
-// Initialized by the user - returns a pointer
+// Initialized by the user – returns a pointer
 // If it returns nil, there was an error
 func initS(N, S, T string) *Entry {
 	// Both of them should have a value
@@ -90,6 +94,7 @@ func initS(N, S, T string) *Entry {
 	LastAccess := strconv.FormatInt(time.Now().Unix(), 10)
 	return &Entry{Name: N, Surname: S, Tel: T, LastAccess: LastAccess}
 }
+
 func insert(pS *Entry) error {
 	// If it already exists, do not add it
 	_, ok := index[(*pS).Tel]
@@ -133,6 +138,7 @@ func search(key string) *Entry {
 }
 
 func list() {
+	sort.Sort(PhoneBook(data))
 	for _, v := range data {
 		fmt.Println(v)
 	}
@@ -144,32 +150,59 @@ func matchTel(s string) bool {
 	return re.Match(t)
 }
 
-func main() {
-	arguments := os.Args
-	if len(arguments) == 1 {
-		fmt.Printf("Usage: insert|delete|search|list <arguments>")
-		return
+func setCSVFILE() error {
+	filepath := os.Getenv("PHONEBOOK")
+	if filepath != "" {
+		CSVFILE = filepath
 	}
 
-	// If the CSVFILE does not exist, create an empty one
 	_, err := os.Stat(CSVFILE)
-	// If error is not nil, it means that the file does not exist
 	if err != nil {
 		fmt.Println("Creating", CSVFILE)
 		f, err := os.Create(CSVFILE)
 		if err != nil {
 			f.Close()
-			fmt.Println(err)
-			return
+			return err
 		}
 		f.Close()
 	}
 
 	fileInfo, err := os.Stat(CSVFILE)
-	// Is it a regular file?
 	mode := fileInfo.Mode()
 	if !mode.IsRegular() {
-		fmt.Println(CSVFILE, "not a regular file!")
+		return fmt.Errorf("%s not a regular file", CSVFILE)
+	}
+	return nil
+}
+
+// Implement sort.Interface
+func (a PhoneBook) Len() int {
+	return len(a)
+}
+
+// First based on surname. If they have the same
+// surname take into account the name.
+func (a PhoneBook) Less(i, j int) bool {
+	if a[i].Surname == a[j].Surname {
+		return a[i].Name < a[j].Name
+	}
+	return a[i].Surname < a[j].Surname
+}
+
+func (a PhoneBook) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
+}
+
+func main() {
+	arguments := os.Args
+	if len(arguments) == 1 {
+		fmt.Println("Usage: insert|delete|search|list <arguments>")
+		return
+	}
+
+	err := setCSVFILE()
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
 
@@ -187,7 +220,6 @@ func main() {
 
 	// Differentiating between the commands
 	switch arguments[1] {
-	// The insert command
 	case "insert":
 		if len(arguments) != 5 {
 			fmt.Println("Usage: insert Name Surname Telephone")
@@ -207,7 +239,6 @@ func main() {
 				return
 			}
 		}
-	// The delete command
 	case "delete":
 		if len(arguments) != 3 {
 			fmt.Println("Usage: delete Number")
@@ -222,7 +253,6 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-	// The search command
 	case "search":
 		if len(arguments) != 3 {
 			fmt.Println("Usage: search Number")
@@ -238,10 +268,9 @@ func main() {
 			fmt.Println("Number not found:", t)
 			return
 		}
-	// The list command
+		fmt.Println(*temp)
 	case "list":
 		list()
-	// Anything that is not a match
 	default:
 		fmt.Println("Not a valid option")
 	}
